@@ -15,6 +15,9 @@
 #define TXDEBUG PIN_PC3
 #define RXDEBUG PIN_PC2
 
+#define WEP_PIN PIN_PC0
+#define DED_PIN PIN_PC1
+
 #define CONTROL_MOTION_TIMEOUT_MS 3000
 
 bfs::SbusRx sbus_rx(&Serial);
@@ -31,11 +34,11 @@ Servo motor;
 void setup() {
   dbgSerial.begin(9600);
 
-  delay(50);
-
   dbgSerial.println("setup begin");
 
-  motor.attach(PIN_PC0);
+  motor.attach(WEP_PIN);
+  motor.writeMicroseconds(1500);
+  pinMode(DED_PIN, INPUT);
 
   pinMode(RFWD, OUTPUT);
   pinMode(RREV, OUTPUT);
@@ -140,6 +143,16 @@ void loop() {
   int ldrv = lim_8(forback + leftright);
   int rdrv = lim_8(forback - leftright);
 
+  if(ldrv > 128 || ldrv < -128) {
+    dbgSerial.print("ldrv spike: ");
+    dbgSerial.println(ldrv);
+  }
+
+  if(rdrv > 128 || rdrv < -128) {
+    dbgSerial.print("rdrv spike: ");
+    dbgSerial.println(rdrv);
+  }
+
   if (ldrv > 0) {
     analogWrite(LFWD, ldrv);
     analogWrite(LREV, 0);
@@ -157,11 +170,7 @@ void loop() {
   }
 
   int wthrtl = map(throttle, -255, 255, 1000, 2000);
-  
-  if(!startup) {
-    // only send weapon signal once we know we have radio signal
-    motor.writeMicroseconds(wthrtl);
-  }
+  motor.writeMicroseconds(wthrtl);
 
   if(millis() % 512 < 20) {
     dbgSerial.print("Throttle setting ms: ");
