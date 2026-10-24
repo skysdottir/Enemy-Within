@@ -2,6 +2,7 @@
 #include <sbus.h> // Bolder Flight Systems SBUS
 #include <Servo_megaTinyCore.h>
 #include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
 
 #define RFWD PIN_PA5
 #define RREV PIN_PA4
@@ -16,14 +17,18 @@
 #define RXDEBUG PIN_PC2
 
 #define WEP_PIN PIN_PC0
-#define DED_PIN PIN_PC1
+#define SERVO_PIN PIN_PC1
 
 #define CONTROL_MOTION_TIMEOUT_MS 3000
 
 bfs::SbusRx sbus_rx(&Serial);
 bfs::SbusData data;
 
+Adafruit_NeoPixel pixels(17, SERVO_PIN, NEO_GRB+NEO_KHZ800);
+
+#ifdef DEBUG_MODE
 SoftwareSerial dbgSerial(RXDEBUG, TXDEBUG);
+#endif
 
 unsigned long control_checksum;
 unsigned long last_changed_at;
@@ -32,13 +37,14 @@ boolean startup = true;
 Servo motor;
 
 void setup() {
+  #ifdef DEBUG_MODE
   dbgSerial.begin(9600);
 
   dbgSerial.println("setup begin");
+  #endif
 
   motor.attach(WEP_PIN);
   motor.writeMicroseconds(1500);
-  pinMode(DED_PIN, INPUT);
 
   pinMode(RFWD, OUTPUT);
   pinMode(RREV, OUTPUT);
@@ -57,7 +63,11 @@ void setup() {
 
   sbus_rx.Begin();
 
+  pixels.begin();
+
+  #ifdef DEBUG_MODE
   dbgSerial.println("setup done");
+  #endif
 }
 
 bool rc_poll() {
@@ -143,16 +153,6 @@ void loop() {
   int ldrv = lim_8(forback + leftright);
   int rdrv = lim_8(forback - leftright);
 
-  if(ldrv > 128 || ldrv < -128) {
-    dbgSerial.print("ldrv spike: ");
-    dbgSerial.println(ldrv);
-  }
-
-  if(rdrv > 128 || rdrv < -128) {
-    dbgSerial.print("rdrv spike: ");
-    dbgSerial.println(rdrv);
-  }
-
   if (ldrv > 0) {
     analogWrite(LFWD, ldrv);
     analogWrite(LREV, 0);
@@ -172,10 +172,25 @@ void loop() {
   int wthrtl = map(throttle, -255, 255, 1000, 2000);
   motor.writeMicroseconds(wthrtl);
 
-  if(millis() % 512 < 20) {
-    dbgSerial.print("Throttle setting ms: ");
+  #ifdef DEBUG_MODE
+  if(millis() % 1024 < 20) {
+    dbgSerial.print("ldrv: ");
+    dbgSerial.print(ldrv);
+    dbgSerial.print(" rdrv: ");
+    dbgSerial.print(rdrv);
+    dbgSerial.print(" Throttle setting ms: ");
     dbgSerial.println(wthrtl);
   }
+  #endif
 
-  delay(10);
+  long now = millis();
+  int shortnow = (now * 64)%65536;
+
+  pixels.clear();
+  for(int i = 0; i < 17; i++) {
+    pixels.setPixelColor(i, pixels.ColorHSV(shortnow + i*6*256));
+  }
+  pixels.show();
+
+  delay(20);
 }

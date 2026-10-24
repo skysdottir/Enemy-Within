@@ -9,8 +9,8 @@
 uint16_t pwm_to_ticks(uint16_t throttle_pct) {
     uint16_t us = 1000 + (throttle_pct * 10);
     
-    // convert to ticks- 10mhz (10 cycles/us), 64x divider
-    us *= 10;
+    // convert to ticks- 16mhz (16 cycles/us), 64x divider
+    us *= 16;
     us /= 64;
     return MAX_TIMER_COUNT - us;
 }
